@@ -1,5 +1,9 @@
 import qualified Data.List as List
 import qualified Data.Map as Map
+import qualified Data.Maybe as Maybe
+
+
+data Match = Engaged String String | Single String deriving (Show)
 
 main :: IO()
 main = do
@@ -20,23 +24,34 @@ main = do
     print maleNames
     print femaleNames
 
+    let maleScores = Map.fromList $ map (\(a, b) -> (a, Map.fromList $ zip b [1..])) females
+
+
+    let malesWithPref = map (\(male, choices) -> (Single male, choices)) males
+    print malesWithPref
+    print $ map (\a -> match maleScores a) malesWithPref
+
     -- for each of the items, create a lookup table
     let lookupTable = Map.fromList listWithStrIndex
     print $ Map.lookup "0" lookupTable
-    
-    -- for each of the male candidates, pair them up with the first choice
 
+    let np = Map.insert "0" False Map.empty
+    print $ Map.insert "0" True np
 
+type ScoreTable = Map.Map String (Map.Map String Int)
+type Approve = Map.Map String Bool
 
+match :: ScoreTable -> (Match, [String]) -> (Match, [String])
+match _ (Single m, (x:xs)) = (Engaged m x, xs)
+-- match table (Engaged m f, (x:xs)) = (Engaged output f, xs) where 
+--     oldScore = score table f m
+--     newScore = score table f x
+--     output = if oldScore < newScore then m else x
 
---     let matchesMap = Map.fromList listWithStrIndex
---     print $ Map.lookup "0" matchesMap
---     let k = Map.insert 0 True Map.empty
---     print k
-
---     print $ match ["1", "2", "3"] Map.empty
-  
--- match :: [String] -> Map.Map String Bool -> Map.Map String Bool
--- match [] map = map
--- match (x:xs) map = match xs $ Map.insert x True map
-  
+score :: ScoreTable -> String -> String -> Int
+score table m f =
+    case Map.lookup f table of
+        Just l -> case Map.lookup m l of 
+            Just v -> v
+            Nothing -> 0
+        Nothing -> 0
