@@ -36,22 +36,24 @@ main = do
     let males = Map.fromList $ map (\(male, choices) -> (male, Male { choices = choices
                                                                     , name = male
                                                                     , status = Single })) maleGroup
-    putStr "Males -> "
-    print males
-    break
+    -- putStr "Males -> "
+    -- print males
+    -- break
 
     let scores = Map.fromList $ map (\(name, preferences) -> (name, Map.fromList $ zip preferences [1..])) femaleGroup 
-    putStr "Scores -> "
-    print scores
-    break
+    -- putStr "Scores -> "
+    -- print scores
+    -- break
 
-    putStr "Lookup score -> "
-    print $ lookupScore scores "5" "0"
-    break
+    -- putStr "Lookup score -> "
+    -- print $ lookupScore scores "5" "0"
+    -- break
 
     putStr "Propose -> "
     let (updatedFemaleStatuses, output) = propose maleNames scores femaleStatuses males
+    -- print output
     print $ propose maleNames scores updatedFemaleStatuses output
+    print "hello world"
     break
 
 propose :: [String] -> Scores -> FemaleStatus -> MaleProposals -> (FemaleStatus, MaleProposals)
@@ -62,29 +64,49 @@ propose [x] scores femaleStatuses males = case Map.lookup x males of
                                         Just Male { choices = (y:ys)
                                                   , name = n
                                                   , status = Single } -> (updatedFemaleStatuses, updatedMap) where
-                                                    (isAvailable, m2) = checkAvailability femaleStatuses y
+
+                                                    -- Check if the female is available, if yes, then get the currently engaged male
+                                                    (isAvailable, currMale) = checkAvailability femaleStatuses y
+
                                                     newEngagement = Map.insert x Male { choices = ys
                                                                     , name = n
                                                                     , status = Engaged y } males
 
+                                                    oldMale = x
+
+                                                    score1 = lookupScore scores y oldMale
+                                                    score2 = lookupScore scores y newMale
+
+                                                    newMale = if score1 < score2 then oldMale else currMale
+
                                                     -- Set one guy to be single, and another to be paired with the other one
-                                                    breakAndReengage = Map.insert x Male { choices = ys
-                                                                       , name = n
-                                                                       , status = Single } males
+                                                    breakup = Map.insert oldMale Male { choices = ys
+                                                                                       , name = oldMale
+                                                                                       , status = Single } males
+
+                                                    breakup2 = if currMale /= "" then Map.insert currMale Male { choices = ys
+                                                                                        , name = currMale
+                                                                                        , status = Single } breakup else breakup
+
+                                                    -- Engage the user to the new wive
+                                                    engage2 = if newMale /= "" then Map.insert newMale Male { choices = ys
+                                                                                      , name = newMale
+                                                                                      , status = Engaged y } breakup2 else breakup2
 
                                                     updatedFemaleStatuses = if isAvailable
-                                                                                then acceptProposal femaleStatuses y x 
-                                                                                else femaleStatuses
+                                                                            then acceptProposal femaleStatuses y x 
+                                                                            else femaleStatuses
 
-                                                    updatedMap = if isAvailable 
-                                                                    then newEngagement 
-                                                                    else breakAndReengage
+                                                    updatedMap = if isAvailable
+                                                                then newEngagement
+                                                                else breakup2
 
                                         -- Male is engaged, skip
                                         Just Male { choices = (y:ys)
                                                   , name = n
                                                   , status = Engaged _ } -> (femaleStatuses, males)
                                         Nothing -> error "cannot find"
+
 propose (x:xs) scores femaleStatuses males = propose xs scores updatedFemaleStatuses $ output where
     (updatedFemaleStatuses, output) = propose [x] scores femaleStatuses males
 
@@ -101,10 +123,10 @@ acceptProposal femaleStatuses femaleName maleName =
 lookupScore :: Scores -> String -> String -> Int
 lookupScore scores female male =
     if female == "" || male == "" 
-        then -1 
+        then 10
         else case Map.lookup female scores of
                 Just maleScores ->
                     case Map.lookup male maleScores of
                         Just score -> score
-                        Nothing -> -1
-                Nothing -> -1
+                        Nothing -> 10
+                Nothing -> 10
