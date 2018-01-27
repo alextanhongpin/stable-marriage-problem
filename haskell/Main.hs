@@ -1,8 +1,9 @@
 import qualified Data.Map as Map
 import qualified Data.List as List
 import qualified Data.Maybe as Maybe
-import Control.Monad
+
 -- import qualified StableMarriageProblem as SMP
+import qualified Console as Console
 
 -- Basic type
 type MaleName = String
@@ -21,35 +22,26 @@ type Females = Map.Map FemaleName Status
 type Scores = Map.Map FemaleName (Map.Map MaleName Score)
 
 -- Data type
-data Status = Single | Engaged String deriving (Show, Eq)
-data Male = Male { choices :: [FemaleName]
-                 , status :: Status } deriving (Show)
+data Status = Single 
+            | Engaged String deriving (Show, Eq)
+
 -- Whether the female party wants to maintain the relationship or breakup
 -- with the current partner
-data Commitment = Available | BreakUpToEngage MaleName MaleName | MaintainEngagement deriving (Show, Eq)
+data Commitment = Available 
+                | BreakUpToEngage MaleName MaleName 
+                | MaintainEngagement deriving (Show, Eq)
+
+data Male = Male { choices :: [FemaleName]
+                 , status :: Status } deriving (Show)
+
 
 main :: IO()
 main = do
-
-    -- let m = Male { choices = ["1", "2"], status = Single }
-    -- let makeEngage x y = x { status = Engaged y } 
-    -- let makeSingle x = x { status = Single }
-    -- let reduceChoice x = x { choices = init $ choices x }
-    -- print m
-    -- let m2 = makeEngage m "2"
-    -- print m2
-    -- let m3 = makeSingle m2
-    -- print m3
-    -- let m4 = reduceChoice m3
-    -- print m4
-
-
-
     -- print $ SMP.sumItNow 1
-    let breakPoint = "4"
     -- First item in tuple is the male/female name
     -- Second item is list of partner preference in order
-    let pairs = [("0", ["7", "5", "6", "4"]),
+    let breakPoint1 = "4"
+    let pairs1 = [("0", ["7", "5", "6", "4"]),
                  ("1", ["5", "4", "6", "7"]),
                  ("2", ["4", "5", "6", "7"]),
                  ("3", ["4", "5", "6", "7"]), -- End of male
@@ -63,35 +55,34 @@ main = do
     -- '2', '4'
     -- '3', '6'
 
-    -- let breakPoint = "a"
-    -- let pairs = [("k", ["b", "c", "a"]),
-    --             ("l", ["a", "c", "b"]),
-    --             ("m", ["a", "b", "c"]),
-    --             ("a", ["k", "l", "m"]),
-    --             ("b", ["l", "m", "k"]),
-    --             ("c", ["m", "l", "k"])]
+    let breakPoint2 = "a"
+    let pairs2 = [("k", ["b", "c", "a"]),
+                ("l", ["a", "c", "b"]),
+                ("m", ["a", "b", "c"]),
+                ("a", ["k", "l", "m"]),
+                ("b", ["l", "m", "k"]),
+                ("c", ["m", "l", "k"])]
     -- Expected results:
     -- 'k', 'c'
     -- 'a', 'l'
     -- 'b', 'm'
-    let (maleGroup, femaleGroup) = splitGroup pairs breakPoint
-    consoleList "maleGroup:" maleGroup
-    consoleList "femaleGroup:" femaleGroup
+    let (females, males) = stableMarriageProblem pairs1 breakPoint1
+    Console.list "females:" $ Map.toList females
+    Console.list "males:" $ Map.toList males
 
-    let maleNames = takeNames maleGroup
-    console "maleNames -> " maleNames
+    let (females2, males2) = stableMarriageProblem pairs2 breakPoint2
+    Console.list "females2:" $ Map.toList females2
+    Console.list "males2:" $ Map.toList males2
 
-    let males = makeSingleMales maleGroup
-    consoleList "males:" $ Map.toList males
-
-    let females = makeSingleFemales femaleGroup
-    consoleList "females:" $ Map.toList females
-
-    let scores = makeScoreTable femaleGroup
-    consoleList "scores:" $ Map.toList scores
-
-    let (out, _) = matchAll maleNames scores females males True
-    print out
+stableMarriageProblem :: [Preference] -> String -> (Females, Males)
+stableMarriageProblem preferences breakPoint = let
+        (maleGroup, femaleGroup) = splitGroup preferences breakPoint
+        maleNames = takeNames maleGroup
+        males = makeSingleMales maleGroup
+        females = makeSingleFemales femaleGroup
+        scores = makeScoreTable femaleGroup
+    in
+        matchAll maleNames scores females males True
 
 -- matchAll will iteratively match all Single males and females until a stable match has been 
 -- reached
@@ -107,57 +98,26 @@ matchAll _ _ females males False = (females, males)
 -- propose to a girl in the list of preference
 propose :: [MaleName] -> Scores -> Females -> Males -> (Females, Males)
 propose [] _ _ _ = (Map.empty, Map.empty)
-propose [x] scores femaleStatuses males = case Map.lookup x males of
+propose [x] scores females males = case Map.lookup x males of
     -- Male is single, and still have several choices
-    Just Male { choices = (y:ys), status = Single } -> (updatedFemaleStatuses, updatedMaleProposals) where
+    Just Male { choices = (y:ys), status = Single } -> case checkCommitment females scores (x, y) of
+        Available -> (updatedFemales, updatedMales) where
+            updatedFemales = acceptProposal females (x, y)
+            updatedMales = makeProposals males (x, y, ys)
 
-        -- utilities helper to update the state of the records
-        -- reduceChoices x = x { choices = ys }
-        -- makeSingle x = x { status = Single }
-        -- makeEngaged x = x { status = Engaged y }
+        BreakUpToEngage oldMale newMale -> (updatedFemales, updatedMales) where
+            updatedFemales = acceptProposal females (newMale, y)
+            updatedMales = Map.insert oldMale (makeSingle existingMale) engage where
+                engage = Map.insert newMale Male { choices = ys, status = Engaged y } males
+                existingMale = case Map.lookup oldMale engage of 
+                    Just record -> record
+                    Nothing -> error "not found"
+                makeSingle x = x { choices = choices x, status = Single }
 
-        -- checkCommitment females scores (x, y) 
-        --     | Available = 
-        --     | BreakUpToEngage m1 m2 = 
-        --     | MaintainEngagement =
-
-        femaleName = y
-        -- Check if the female is available, if yes, then get the currently engaged male
-        (isAvailable, currMale) = checkAvailability femaleStatuses y
-
-        getScore = lookupScore scores
-        oldMale = x
-
-        isReplacable = getScore (oldMale, y) < getScore (currMale, y)
-        newEngagement = Map.insert oldMale Male { choices = ys, status = Engaged y } males
-
-        breakup = Map.insert oldMale Male { choices = ys, status = Engaged y } males
-        currMaleRecord = case Map.lookup currMale breakup of
-            Just record -> record
-            Nothing -> error "not found"
-        updateMaleRecord x = x { status = Single }
-        updateMaleEngagedRecord x = x { status = Engaged y }
-        reengage = Map.insert currMale (updateMaleRecord currMaleRecord) breakup
-
-        oldMaleRecord = case Map.lookup oldMale males of
-            Just record -> record
-            Nothing -> error "not found"
-        upgradeProposal = Map.insert oldMale Male { choices = ys, status = Single } males
-        upgradeProposal2 = Map.insert currMale (updateMaleEngagedRecord currMaleRecord) upgradeProposal
-
-        updatedFemaleStatuses = if isAvailable
-                                then acceptProposal femaleStatuses (oldMale, y)
-                                else if isReplacable
-                                    then acceptProposal femaleStatuses (oldMale, y)
-                                    else femaleStatuses
-        
-        updatedMaleProposals = if isAvailable -- female is single
-                                then newEngagement -- new match
-                                else if isReplacable -- Old score is lower, means higher preference
-                                    then reengage -- maintain the old relationship
-                                    else upgradeProposal2 -- female choose a better one
-    Just Male { status = Engaged _ } -> (femaleStatuses, males)
-    Just Male { choices = [] } -> (femaleStatuses, males)
+        MaintainEngagement -> (females, updatedMales) where
+            updatedMales = Map.insert x Male { choices = ys, status = Single } males
+    Just Male { status = Engaged _ } -> (females, males)
+    Just Male { choices = [] } -> (females, males)
     Nothing -> error "error occured at propose"
 propose (x:xs) scores females males = propose xs scores updatedFemales updatedMales where
     (updatedFemales, updatedMales) = propose [x] scores females males
@@ -170,24 +130,32 @@ checkAvailability females name =
         Just (Engaged m) -> (False, m)
         Nothing -> error "Not found"
 
+safeInit :: [Name] -> [Name]
+safeInit [] = []
+safeInit [y] = []
+safeInit (y:ys) = ys
+
 -- Check the female commitment
--- checkCommitment :: Females -> Scores -> Pair -> Commitment
--- checkCommitment females (maleName, femaleName) = state where
---     case Map.lookup femaleName females of 
---         Just Single -> Available
---         Just (Engaged existingMaleName) -> decision where
---             -- compute the score of the female against the currMale
---             score1 = lookupScore scores (maleName, femaleName) 
---             score2 = lookupScore scores (existingMaleName, femaleName)
---             breakup = score1 < score2
---             decision = if breakup 
---                 then BreakUpToEngage existingMaleName maleName 
---                 else MaintainEngagement 
---         Nothing -> error ("unable to check commitment for female " ++ femaleName)
+checkCommitment :: Females -> Scores -> Pair -> Commitment
+checkCommitment females scores (maleName, femaleName) = case Map.lookup femaleName females of 
+    Just Single -> Available
+    Just (Engaged existingMaleName) -> decision where
+        -- compute the score of the female against the currMale
+        score1 = lookupScore scores (maleName, femaleName) 
+        score2 = lookupScore scores (existingMaleName, femaleName)
+        breakup = score1 < score2
+        decision = if breakup 
+            then BreakUpToEngage existingMaleName maleName 
+            else MaintainEngagement 
+    Nothing -> error ("unable to check commitment for female " ++ femaleName)
 
 acceptProposal :: Females -> Pair -> Females
-acceptProposal females (maleName, femaleName) = 
-    Map.insert femaleName (Engaged maleName) females
+acceptProposal females (maleName, femaleName) = Map.insert femaleName (Engaged maleName) females
+
+makeProposals :: Males -> (MaleName, FemaleName, [FemaleName]) -> Males
+makeProposals males (maleName, femaleName, femaleNames) =
+    Map.insert maleName Male { choices = femaleNames
+                             , status = Engaged femaleName } males
 
 -- Lookup the score for a male-female pair and return them
 -- TODO: It is not possible to get max inf score in haskell, 
@@ -244,31 +212,3 @@ terminationCondition females = isTerminated where
     totalCount = Map.size females
     isTerminated = currCount /= totalCount
 
--- testOrder :: Int -> Int -> Ordering
--- testOrder a b 
---     | a > b = GT
---     | a < b = LT
---     | a == b = EQ
-
-{-- UTILITIES
-:contains useful utilities such as printing to IO(),
-does not involve any business logic
---}
-
--- Prints a newline to IO()
-br :: IO()
-br = putStr "\n"
-
--- Prefix a with namespace before printing it to IO()
-console :: (Show a) => String -> a -> IO()
-console ns obj = do 
-    putStr ns
-    print obj
-    br
-
--- Prefix list a with namespace before printing it to IO()
-consoleList :: (Show a) => String -> [a] -> IO()
-consoleList ns list = do
-    putStrLn ns
-    forM_ list $ \a -> print a
-    br

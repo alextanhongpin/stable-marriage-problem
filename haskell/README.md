@@ -36,3 +36,41 @@ Those are not related at all, so the question is, how do we approach this naming
 If we have a mixture of `Male` and `Female` type in a list, how do we name it? Do we come up with a generic type such as `Gender`?
 
 Unfortunately, we cannot answer this for now due to lack of knowledge. This could just be a matter of decision.
+
+## Returning order
+
+```haskell
+testOrder :: Int -> Int -> Ordering
+testOrder a b 
+    | a > b = GT
+    | a < b = LT
+    | a == b = EQ
+
+testOrder 1 2 -- Returns LT
+testOrder 2 1 -- Returns GT
+testOrder 1 1 -- Returns EQ
+```
+
+
+## Updating Record
+
+```haskell
+data Male = Male { choices :: [FemaleName]
+                 , status :: Status } deriving (Show)
+
+
+let m = Male { choices = ["1", "2"], status = Single }
+let makeEngage x y = x { status = Engaged y } 
+let makeSingle x = x { status = Single }
+let reduceChoice x = x { choices = init $ choices x }
+print m
+
+let m2 = makeEngage m "2"
+print m2
+
+let m3 = makeSingle m2
+print m3
+
+let m4 = reduceChoice m3
+print m4
+```
