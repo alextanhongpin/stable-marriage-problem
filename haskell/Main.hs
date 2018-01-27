@@ -2,6 +2,7 @@ import qualified Data.Map as Map
 import qualified Data.List as List
 import qualified Data.Maybe as Maybe
 import Control.Monad
+-- import qualified StableMarriageProblem as SMP
 
 -- Basic type
 type MaleName = String
@@ -26,6 +27,8 @@ data Male = Male { choices :: [FemaleName]
 
 main :: IO()
 main = do
+    -- print $ SMP.sumItNow 1
+
     let breakPoint = "4"
     -- First item in tuple is the male/female name
     -- Second item is list of partner preference in order
@@ -75,12 +78,10 @@ main = do
 
 matchAll :: [MaleName] -> Scores -> Females -> Males -> Bool -> (Females, Males)
 matchAll maleNames scores females males True = let 
-        (updatedFemaleStatus, updatedMaleProposals) = propose maleNames scores females males
-        newCount = Map.size $ Map.filter (\a -> a /= Single) updatedFemaleStatus
-        totalCount = Map.size updatedFemaleStatus 
-        nextLoop = newCount /= totalCount
+        (updatedFemales, updatedMales) = propose maleNames scores females males
+        continue = terminationCondition updatedFemales
     in
-        matchAll maleNames scores updatedFemaleStatus updatedMaleProposals nextLoop
+        matchAll maleNames scores updatedFemales updatedMales continue
 matchAll _ _ females males False = (females, males)
 
 propose :: [MaleName] -> Scores -> Females -> Males -> (Females, Males)
@@ -141,6 +142,7 @@ acceptProposal :: Females -> Pair -> Females
 acceptProposal femaleStatuses (femaleName, maleName) = 
     Map.insert femaleName (Engaged maleName) femaleStatuses
 
+-- Lookup the score for a male-female pair and return them
 lookupScore :: Scores -> Pair -> Score
 lookupScore scores (female, male) =
     if female == "" || male == "" 
@@ -152,6 +154,7 @@ lookupScore scores (female, male) =
                         Nothing -> 10
                 Nothing -> 10
 
+-- Take a group of male and female preferences and return them in two partition
 splitGroup :: [Preference] -> String -> ([MalePreference], [FemalePreference])
 splitGroup groups breakPoint = 
     List.span (\(a, _) -> a /= breakPoint) groups
@@ -170,16 +173,25 @@ makeSingleFemales preferences = females where
 -- Return a list of with Single assigned to each person
 makeSingleMales :: [Preference] -> Map.Map MaleName Male
 makeSingleMales preferences = males where
-    makeSingle = \(male, choices) -> (male, Male { choices = choices
-                                                 , status = Single })
+    makeSingle = \(male, choices) -> (male, 
+                                      Male { choices = choices
+                                           , status = Single })
     singles = map makeSingle preferences
     males = Map.fromList singles
 
+-- Assign scores to each male and return a dictionary lookup
 makeScoreTable :: [FemalePreference] -> Scores
 makeScoreTable preferences = scores where
     assignScore = \(name, preferences) -> (name, Map.fromList $ zip preferences [1..])
     femaleWithScores = map assignScore preferences
     scores = Map.fromList femaleWithScores
+
+terminationCondition :: Females -> Bool
+terminationCondition females = isTerminated where
+    getTotalCount = Map.size . Map.filter (\a -> a /= Single)
+    currCount = getTotalCount females
+    totalCount = Map.size females 
+    isTerminated = currCount /= totalCount
 
 {-- UTILITIES
 :contains useful utilities such as printing to IO(),
