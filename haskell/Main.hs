@@ -26,10 +26,25 @@ data Male = Male { choices :: [FemaleName]
                  , status :: Status } deriving (Show)
 -- Whether the female party wants to maintain the relationship or breakup
 -- with the current partner
-data Commitment = Available | BreakUpToEngage String | MaintainEngagement deriving (Show)
+data Commitment = Available | BreakUpToEngage MaleName MaleName | MaintainEngagement deriving (Show, Eq)
 
 main :: IO()
 main = do
+
+    -- let m = Male { choices = ["1", "2"], status = Single }
+    -- let makeEngage x y = x { status = Engaged y } 
+    -- let makeSingle x = x { status = Single }
+    -- let reduceChoice x = x { choices = init $ choices x }
+    -- print m
+    -- let m2 = makeEngage m "2"
+    -- print m2
+    -- let m3 = makeSingle m2
+    -- print m3
+    -- let m4 = reduceChoice m3
+    -- print m4
+
+
+
     -- print $ SMP.sumItNow 1
     let breakPoint = "4"
     -- First item in tuple is the male/female name
@@ -95,6 +110,18 @@ propose [] _ _ _ = (Map.empty, Map.empty)
 propose [x] scores femaleStatuses males = case Map.lookup x males of
     -- Male is single, and still have several choices
     Just Male { choices = (y:ys), status = Single } -> (updatedFemaleStatuses, updatedMaleProposals) where
+
+        -- utilities helper to update the state of the records
+        -- reduceChoices x = x { choices = ys }
+        -- makeSingle x = x { status = Single }
+        -- makeEngaged x = x { status = Engaged y }
+
+        -- checkCommitment females scores (x, y) 
+        --     | Available = 
+        --     | BreakUpToEngage m1 m2 = 
+        --     | MaintainEngagement =
+
+        femaleName = y
         -- Check if the female is available, if yes, then get the currently engaged male
         (isAvailable, currMale) = checkAvailability femaleStatuses y
 
@@ -102,7 +129,6 @@ propose [x] scores femaleStatuses males = case Map.lookup x males of
         oldMale = x
 
         isReplacable = getScore (oldMale, y) < getScore (currMale, y)
-
         newEngagement = Map.insert oldMale Male { choices = ys, status = Engaged y } males
 
         breakup = Map.insert oldMale Male { choices = ys, status = Engaged y } males
@@ -145,12 +171,19 @@ checkAvailability females name =
         Nothing -> error "Not found"
 
 -- Check the female commitment
--- checkCommitment :: Females -> FemaleName -> Commitment
--- checkCommitment females femaleName = 
---     case checkAvailability females name of
---         (True, _) -> Available
---         (False, _) -> decision where
-
+-- checkCommitment :: Females -> Scores -> Pair -> Commitment
+-- checkCommitment females (maleName, femaleName) = state where
+--     case Map.lookup femaleName females of 
+--         Just Single -> Available
+--         Just (Engaged existingMaleName) -> decision where
+--             -- compute the score of the female against the currMale
+--             score1 = lookupScore scores (maleName, femaleName) 
+--             score2 = lookupScore scores (existingMaleName, femaleName)
+--             breakup = score1 < score2
+--             decision = if breakup 
+--                 then BreakUpToEngage existingMaleName maleName 
+--                 else MaintainEngagement 
+--         Nothing -> error ("unable to check commitment for female " ++ femaleName)
 
 acceptProposal :: Females -> Pair -> Females
 acceptProposal females (maleName, femaleName) = 
@@ -158,7 +191,7 @@ acceptProposal females (maleName, femaleName) =
 
 -- Lookup the score for a male-female pair and return them
 -- TODO: It is not possible to get max inf score in haskell, 
--- one solution is to pronbably assign the ORD such as Eq, Gt, or LT
+-- one solution is to probably assign the ORD such as Eq, Gt, or LT
 -- for comparison
 lookupScore :: Scores -> Pair -> Score
 lookupScore scores (male, female)
@@ -210,7 +243,6 @@ terminationCondition females = isTerminated where
     currCount = getTotalCount females
     totalCount = Map.size females
     isTerminated = currCount /= totalCount
-
 
 -- testOrder :: Int -> Int -> Ordering
 -- testOrder a b 
