@@ -24,11 +24,13 @@ type Scores = Map.Map FemaleName (Map.Map MaleName Score)
 data Status = Single | Engaged String deriving (Show, Eq)
 data Male = Male { choices :: [FemaleName]
                  , status :: Status } deriving (Show)
+-- Whether the female party wants to maintain the relationship or breakup
+-- with the current partner
+data Commitment = Available | BreakUpToEngage String | MaintainEngagement deriving (Show)
 
 main :: IO()
 main = do
     -- print $ SMP.sumItNow 1
-
     let breakPoint = "4"
     -- First item in tuple is the male/female name
     -- Second item is list of partner preference in order
@@ -76,6 +78,8 @@ main = do
     let (out, _) = matchAll maleNames scores females males True
     print out
 
+-- matchAll will iteratively match all Single males and females until a stable match has been 
+-- reached
 matchAll :: [MaleName] -> Scores -> Females -> Males -> Bool -> (Females, Males)
 matchAll maleNames scores females males True = let 
         (updatedFemales, updatedMales) = propose maleNames scores females males
@@ -84,6 +88,8 @@ matchAll maleNames scores females males True = let
         matchAll maleNames scores updatedFemales updatedMales continue
 matchAll _ _ females males False = (females, males)
 
+-- Iteratively make a proposal to guys that are still single. For every turn,
+-- propose to a girl in the list of preference
 propose :: [MaleName] -> Scores -> Females -> Males -> (Females, Males)
 propose [] _ _ _ = (Map.empty, Map.empty)
 propose [x] scores femaleStatuses males = case Map.lookup x males of
@@ -113,11 +119,10 @@ propose [x] scores femaleStatuses males = case Map.lookup x males of
         upgradeProposal = Map.insert oldMale Male { choices = ys, status = Single } males
         upgradeProposal2 = Map.insert currMale (updateMaleEngagedRecord currMaleRecord) upgradeProposal
 
-
         updatedFemaleStatuses = if isAvailable
-                                then acceptProposal femaleStatuses (y, oldMale)
+                                then acceptProposal femaleStatuses (oldMale, y)
                                 else if isReplacable
-                                    then acceptProposal femaleStatuses (y, oldMale)
+                                    then acceptProposal femaleStatuses (oldMale, y)
                                     else femaleStatuses
         
         updatedMaleProposals = if isAvailable -- female is single
@@ -127,10 +132,11 @@ propose [x] scores femaleStatuses males = case Map.lookup x males of
                                     else upgradeProposal2 -- female choose a better one
     Just Male { status = Engaged _ } -> (femaleStatuses, males)
     Just Male { choices = [] } -> (femaleStatuses, males)
-    Nothing -> error "cannot find"
-propose (x:xs) scores femaleStatuses males = propose xs scores updatedFemaleStatuses output where
-    (updatedFemaleStatuses, output) = propose [x] scores femaleStatuses males
+    Nothing -> error "error occured at propose"
+propose (x:xs) scores females males = propose xs scores updatedFemales updatedMales where
+    (updatedFemales, updatedMales) = propose [x] scores females males
 
+-- Check if the female is available or already engaged to a male
 checkAvailability :: Females -> FemaleName -> (Bool, String)
 checkAvailability females name =
     case Map.lookup name females of
@@ -138,21 +144,32 @@ checkAvailability females name =
         Just (Engaged m) -> (False, m)
         Nothing -> error "Not found"
 
+-- Check the female commitment
+-- checkCommitment :: Females -> FemaleName -> Commitment
+-- checkCommitment females femaleName = 
+--     case checkAvailability females name of
+--         (True, _) -> Available
+--         (False, _) -> decision where
+
+
 acceptProposal :: Females -> Pair -> Females
-acceptProposal femaleStatuses (femaleName, maleName) = 
-    Map.insert femaleName (Engaged maleName) femaleStatuses
+acceptProposal females (maleName, femaleName) = 
+    Map.insert femaleName (Engaged maleName) females
 
 -- Lookup the score for a male-female pair and return them
+-- TODO: It is not possible to get max inf score in haskell, 
+-- one solution is to pronbably assign the ORD such as Eq, Gt, or LT
+-- for comparison
 lookupScore :: Scores -> Pair -> Score
-lookupScore scores (female, male) =
-    if female == "" || male == "" 
-        then 10
-        else case Map.lookup female scores of
-                Just maleScores ->
-                    case Map.lookup male maleScores of
-                        Just score -> score
-                        Nothing -> 10
-                Nothing -> 10
+lookupScore scores (male, female)
+    | female == "" = error "female cannot be empty"
+    | male == "" = error "male cannot be empty"
+    | otherwise = case Map.lookup female scores of
+                    Just maleScores ->
+                        case Map.lookup male maleScores of
+                            Just score -> score
+                            Nothing -> error ("cannot get score for male " ++ male)
+                    Nothing -> error ("cannot get score for female " ++ female)
 
 -- Take a group of male and female preferences and return them in two partition
 splitGroup :: [Preference] -> String -> ([MalePreference], [FemalePreference])
@@ -183,15 +200,23 @@ makeSingleMales preferences = males where
 makeScoreTable :: [FemalePreference] -> Scores
 makeScoreTable preferences = scores where
     assignScore = \(name, preferences) -> (name, Map.fromList $ zip preferences [1..])
-    femaleWithScores = map assignScore preferences
-    scores = Map.fromList femaleWithScores
+    computeScores =  Map.fromList . map assignScore
+    scores = computeScores preferences
 
+-- Checks if the termination condition is reached, which is when all male-female is engaged
 terminationCondition :: Females -> Bool
 terminationCondition females = isTerminated where
     getTotalCount = Map.size . Map.filter (\a -> a /= Single)
     currCount = getTotalCount females
-    totalCount = Map.size females 
+    totalCount = Map.size females
     isTerminated = currCount /= totalCount
+
+
+-- testOrder :: Int -> Int -> Ordering
+-- testOrder a b 
+--     | a > b = GT
+--     | a < b = LT
+--     | a == b = EQ
 
 {-- UTILITIES
 :contains useful utilities such as printing to IO(),
