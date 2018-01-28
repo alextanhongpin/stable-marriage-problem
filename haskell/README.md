@@ -1,8 +1,15 @@
 # Stable Marriage Problem in Haskell
 
 
-Here are some thoughts while writing the solution:
+## Usage
 
+```bash
+$ runhaskell Main.hs
+```
+
+## Comments
+
+Here are some thoughts while writing the solution:
 
 ## Persisting State between recursions
 
