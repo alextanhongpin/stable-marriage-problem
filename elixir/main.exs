@@ -30,6 +30,16 @@ IO.inspect scores["4"]["3"], label: "score table"
 
 # A dictionary to check if the male is already engaged or not
 defmodule StableMarriageProblem do
+	# defp is_engaged(true, females) do
+	# 	IO.puts "is single"
+	# end
+
+	# defp is_engaged(false, females) do
+	# 	IO.inspect females
+	# 	IO.puts "not single"
+	# 	[f | rest] = females
+	# end
+
 	def match(_, engaged, _, total_matches) when total_matches === 8 do
 		engaged
 	end
@@ -37,6 +47,11 @@ defmodule StableMarriageProblem do
 	def match(init_males, init_engaged, scores, _) do
 		# IO.puts total_matches
 		{males_up, engaged_up} = Enum.reduce(init_males, {init_males, init_engaged}, fn({ m, choices }, {males, engaged}) ->
+
+			# m 
+			# |> (&Map.has_key?(engaged, &1)).()
+			# |> is_engaged(choices)
+
 			is_male_single = not Map.has_key?(engaged, m)
 			case is_male_single do
 				true -> 
@@ -72,3 +87,16 @@ end
 
 matches = StableMarriageProblem.match(males, %{}, scores, 0)
 IO.inspect matches, label: "engaged status"
+
+
+engaged = %{}
+
+defmodule TestTrue do
+	def scream(true) do
+		IO.puts "is true"
+	end
+
+	def scream(false) do
+		IO.puts "is falsd"
+	end
+end
