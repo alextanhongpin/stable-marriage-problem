@@ -27,25 +27,56 @@ function stableMatching {
 Implementation in JavaScript:
 
 ```js
+// Solution 1: "{"Y":"A","A":"Y","Z":"B","B":"Z","X":"C","C":"X"}"
+// const menPreferences = {
+//   A: 'YXZ',
+//   B: 'ZYX',
+//   C: 'XZY'
+// }
+
+// const womenPreferences = {
+//   X: 'BAC',
+//   Y: 'CBA',
+//   Z: 'ACB'
+// }
+
+
+// Solution 2: "{"0":"7","1":"5","2":"4","3":"6","4":"2","5":"1","6":"3","7":"0"}"
+const engaged = {}
+
+// const menPreferences = {
+//   0: '7564',  
+//   1: '5467',  
+//   2: '4567', 
+//   3: '4567'
+// }
+
+// const womenPreferences = {
+//   4: '0123',  
+//   5: '0123',  
+//   6: '0123',  
+//   7: '0123'
+// }
+
+// Solution 3: "{"X":"A","A":"X","Y":"B","B":"Y","Z":"C","C":"Z"}"
+
 const menPreferences = {
-  A: 'YXZ',
-  B: 'ZYX',
-  C: 'XZY'
+  A: 'XYZ',
+  B: 'YXZ',
+  C: 'XYZ'
 }
 
 const womenPreferences = {
   X: 'BAC',
-  Y: 'CBA',
-  Z: 'ACB'
+  Y: 'ABC',
+  Z: 'ABC'
 }
 
-const engaged = {}
-
-const matches = Object.entries(menPreferences)
+const bachelors = Object.entries(menPreferences)
   .map(([man, preferences]) => [man, preferences.split('')])
 
-while (matches.length) {
-  const [man, preferences] = matches.shift()
+while (bachelors.length) {
+  const [man, preferences] = bachelors.shift()
   const woman = preferences.shift()
   if (!engaged[woman]) {
     engaged[woman] = man
@@ -53,9 +84,15 @@ while (matches.length) {
   } else {
     const currentMan = engaged[woman]
     const womanPreferences = womenPreferences[woman]
+    // Smaller index value is more preferable.
     if (womanPreferences.indexOf(man) < womanPreferences.indexOf(currentMan)) {
       engaged[woman] = man
-      engaged[currentMan] = null
+      engaged[man] = woman
+      delete engaged[currentMan]
+    } else {
+      // Reject.
+      console.log('man is rejected', man)
+      bachelors.unshift([man, preferences])
     }
   }
 }
